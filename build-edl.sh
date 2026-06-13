@@ -1,25 +1,27 @@
-name: build-panos-edl
+#!/usr/bin/env bash
+# Downloads the StevenBlack hosts list and converts it into the plain
+# one-domain-per-line format that a PAN-OS Domain EDL can read.
+# Output file: edl/panos-edl.txt
+set -euo pipefail
  
-on:
-  schedule:
-    - cron: "30 4 * * *"   # runs daily at 04:30 UTC
-  workflow_dispatch: {}     # lets you run it by hand from the Actions tab
+OUT_DIR="edl"
+OUT_FILE="${OUT_DIR}/panos-edl.txt"
+SOURCE="https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts"
  
-permissions:
-  contents: write
+mkdir -p "$OUT_DIR"
+TMP="$(mktemp)"; trap 'rm -f "$TMP"' EXIT
  
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build EDL
-        run: |
-          chmod +x build-edl.sh
-          ./build-edl.sh
-      - name: Commit if changed
-        run: |
-          git config user.name  "edl-bot"
-          git config user.email "edl-bot@users.noreply.github.com"
-          git add edl/panos-edl.txt
-          git diff --staged --quiet || { git commit -m "Update EDL ($(date -u +%F))"; git push; }
+# Keep only "0.0.0.0 domain" lines, take the domain, lowercase, drop junk,
+# keep only valid domains, remove duplicates.
+curl -fsSL --retry 3 "$SOURCE" \
+  | grep '^0\.0\.0\.0 ' \
+  | awk '{print $2}' \
+  | tr 'A-Z' 'a-z' \
+  | grep -vE '^(localhost|local|broadcasthost|ip6-)' \
+  | grep -vE '^[0-9.]+$' \
+  | grep -E '^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$' \
+  | sort -u > "$TMP"
+ 
+COUNT="$(wc -l < "$TMP")"
+{ echo "# StevenBlack converted for PAN-OS - $(date -u +%FT%TZ) - ${COUNT} domains"; cat "$TMP"; } > "$OUT_FILE"
+echo "Wrote ${COUNT} domains to ${OUT_FILE}"
