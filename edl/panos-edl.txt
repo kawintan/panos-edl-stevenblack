@@ -1,4 +1,4 @@
-# StevenBlack converted for PAN-OS - 2026-09-27T10:05:47Z - 74747 domains
+# StevenBlack converted for PAN-OS - 2026-09-28T11:04:52Z - 74747 domains
 0.0.0.0.creative.hpyrdr.com
 0.0.0.0.hpyrdr.com
 0.ackzany.com
